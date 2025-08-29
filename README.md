@@ -39,7 +39,38 @@ wget -qO - lwrap.website.yandexcloud.net|bash
 ```
 wget -qO - lux-wine-git.static.hf.space|sed 1d|bash
 ```
+</details> 
 
+## **Reinstallation in case of a bad installation**:
+```
+curl -sL lwrap.github.io | bash -s -- --force
+```
+
+<details><summary style="font-size: 15px;"><b>
+Alternative mirrors and installation commands
+</b></summary>
+
+* YC mirror:
+```
+curl -sL lwrap.website.yandexcloud.net|bash -s -- --force
+```
+* HF mirror:
+```
+curl -sL lux-wine-git.static.hf.space|sed 1d|bash -s -- --force
+```
+
+* or with `wget`:
+```
+wget -qO - lwrap.github.io|bash -s -- --force
+```
+* YC mirror:
+```
+wget -qO - lwrap.website.yandexcloud.net|bash -s -- --force
+```
+* HF mirror:
+```
+wget -qO - lux-wine-git.static.hf.space|sed 1d|bash -s -- --force
+```
 </details> 
 
 ## Video of the installation process:
