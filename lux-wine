@@ -7035,3 +7035,162 @@ if [[ "$EUID" == 0 && "$ALLOW_ROOT" != 1 ]]
             *) lu_start "$@" ;;
         esac
 fi
+
+
+#---We add uninstaller---
+
+# 1. Installing the removal script
+install -d "$HOME/.local/bin"
+cat > "$HOME/.local/bin/luxwine-uninstall.sh" << 'EOF'
+#!/usr/bin/env bash
+# Complete removal of LuxWine from the system
+
+set -e
+
+echo -e "${RED} LuxWine Removal $RESETCOLOR"
+
+while true; do 
+	read -p $' Press the keyboard key [Y]❓ ✅to continue  \n Press the keyboard key [N]❓ ❌to exit  \n||| waiting for input >>> >>> ' choice
+	case "$choice" in
+		[Yy])
+			echo "✅ We continue the execution..."
+			break
+			;;
+	[Nn])
+		echo "❌ Exiting the script at the user's request."
+		exit 0
+		;;
+	*)
+		echo "⚠️ Invalid input. Please enter Y or N."
+		;;
+	esac
+done
+
+echo -e "${YELLOW} Stopping lwrun processes $RESETCOLOR"
+pkill -f lwrun
+pkill -9 -f lwrun
+echo " Processes are stopped by lwrun"
+
+echo -e "${YELLOW} Process Search lwrun $RESETCOLOR"
+ps aux | grep -i lwrun
+echo " Next..."
+
+echo -e "${YELLOW} Search for mounts starting from /tmp/.r... $RESETCOLOR"
+
+mount_points=$(mount | grep '/tmp/.r' | awk '{print $3}')
+
+if [ -z "$mount_points" ]; then
+	echo -e "${GREEN} Not found - no active mounts /tmp/.r $RESETCOLOR" 
+else
+	echo -e "${YELLOW} Found: $RESETCOLOR"
+	echo "$mount_points"
+
+	for mp in $mount_points; do
+		echo -e "${YELLOW} Unmounting: $mp $RESETCOLOR"
+		sudo umount -l "$mp" && echo -e "${GREEN} Successfully unmounted: $mp $RESETCOLOR" || echo -e "${RED} Couldn't be unmounted: $mp $RESETCOLOR"
+	done
+fi
+
+# path
+echo -e "${YELLOW} Delete LuxWine path $RESETCOLOR"
+HOME_BIN="$HOME/.local/bin"
+LW_DIR="$HOME/.local/share/LuxWine"
+MENU_APPS="$HOME/.local/share/applications"
+MENU_MERGED="$HOME/.config/menus/applications-merged"
+KDE_SERVICES="$HOME/.local/share/kservices5/ServiceMenus"
+KIO_SERVICES="$HOME/.local/share/kio/servicemenus"
+HOME_DESK="$HOME/.local/share/desktop-directories"
+ICONS_DIR="$HOME/.local/share/icons"
+
+# Additionally:
+echo -e "${YELLOW} Delete LuxWine additionally $RESETCOLOR"
+CACHE_DIR="$HOME/.cache/LuxWine"
+CONFIG_DIR="$HOME/.config/LuxWine"
+STATE_DIR="$HOME/.local/state/LuxWine"
+
+# Wine-prefixes
+echo -e "${YELLOW} Delete LuxWine prefix $RESETCOLOR"
+PREFIXES=(
+  "$HOME/LuxWinePrefixes"
+  "$HOME/.wine-luxwine"
+  "$HOME/.wine-lwrap"
+  "$HOME/prefix-luxwine"
+)
+
+# Removing shortcuts and menus
+echo -e "${YELLOW} Removing shortcuts and menus $RESETCOLOR"
+rm -f "$MENU_APPS/steam-lw.desktop"
+rm -f "$MENU_APPS/LuxWine.desktop"
+rm -rf "$MENU_APPS/LuxWine"
+rm -f "$MENU_MERGED/LuxWine.menu"
+rm -f "$HOME/Desktop/LuxWine.desktop"
+rm -f "$HOME/Desktop/LutrisWine.desktop"
+rm -rf "$KDE_SERVICES"/LuxWine*
+rm -rf "$KIO_SERVICES"/LuxWine*
+rm -rf "$KDE_SERVICES"/LutrisWine*
+rm -rf "$KIO_SERVICES"/LutrisWine*
+rm -f "$MENU_MERGED/LutrisWine.menu"
+rm -rf "$ICONS_DIR"
+rm -rf "$HOME_DESK"
+
+# Removing binaries and symlinks
+rm -f "$HOME_BIN/lwrun" "$HOME_BIN/lwrap"
+rm -f "$HOME_BIN/steam" "$HOME_BIN/steam-native" "$HOME_BIN/runimage-lw" 2>/dev/null || true
+find "$HOME_BIN" -xtype l -delete
+
+# Deleting the LuxWine main directory
+echo -e "${YELLOW} Removing LuxWine main directory $RESETCOLOR"
+rm -rf "$LW_DIR"
+
+# Deleting additional directories (cache, configs, statuses)
+echo -e "${YELLOW} Deleting additional directories (cache, configs, statuses) $RESETCOLOR"
+rm -rf "$CACHE_DIR" "$CONFIG_DIR" "$STATE_DIR"
+
+# Removing LuxWine prefixes (if you are sure)
+for prefix in "${PREFIXES[@]}"; do
+    if [ -d "$prefix" ]; then
+        echo -e "${YELLOW} Wine prefix deleted: $prefix $RESETCOLOR"
+        rm -rf "$prefix"
+    fi
+done
+
+# Removing LuxWine Steam shortcuts (if any remain)
+echo -e "${YELLOW} Deleting LuxWine Steam shortcuts $RESETCOLOR"
+find "$MENU_APPS" -iname "*luxwine*" -exec rm -rf {} +
+
+# Removing Steam Shortcuts (search)
+echo -e "${YELLOW} Checking environment variables in .bashrc/.zshrc. $RESETCOLOR"
+
+for file in "$HOME/.bashrc" "$HOME/.zshrc"; do
+  if grep -qi luxwine "$file"; then
+    echo -e "${YELLOW} Deleting lines from $file $RESETCOLOR"
+    sed -i '/luxwine/d' "$file"
+  fi
+done
+
+# Final search for the remaining parts
+echo "🔍 Final search for parts."
+find "$HOME" -iname "*luxwine*" 2>/dev/null
+
+echo -e "${GREEN} LuxWine has been completely removed. $RESETCOLOR"
+EOF
+chmod +x "$HOME/.local/bin/luxwine-uninstall.sh"
+
+# 2. Create a shortcut in the menu
+install -d "$HOME/.local/share/applications"
+cat > "$HOME/.local/share/applications/LuxWine-uninstall.desktop" << EOF
+[Desktop Entry]
+Type=Application
+Name=Uninstall LuxWine
+Comment=Full Delete LuxWine Alls
+Exec=bash -c "\$HOME/.local/bin/luxwine-uninstall.sh; read -p 'Press Enter to close...'"
+Icon=utilities-terminal
+Terminal=true
+Categories=Utility;
+EOF
+
+# Updating the menu cache (optional)
+if command -v xdg-desktop-menu >/dev/null 2>&1; then
+  xdg-desktop-menu install "$HOME/.local/share/applications/luxwine-uninstall.desktop"
+  xdg-desktop-menu forceupdate
+fi
